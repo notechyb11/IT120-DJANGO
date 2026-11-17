@@ -1,0 +1,117 @@
+{% extends 'sms_app/base.html' %}
+{% load static %}
+{% block title %}Compose{% endblock %}
+
+{% block content %}
+{% if missing_settings %}
+  <div class="alert alert-warning">
+    <strong><i class="bi bi-gear-fill"></i> SMS provider not configured.</strong>
+    Missing: {{ missing_settings|join:", " }}.
+    Copy <code>.env.example</code> to <code>.env</code>, fill in your Twilio values and restart the server.
+    You can still try the form; sending will fail with a clear error.
+  </div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-1">Send an SMS</h1>
+        <p class="text-body-secondary mb-4">Enter the recipient's number and your message, then press <em>Send SMS</em>.</p>
+
+        <form method="post" novalidate id="sms-form">
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>
+          {% endif %}
+
+          {% if contacts %}
+          <div class="mb-3">
+            <label for="{{ form.contact.id_for_label }}" class="form-label">Saved contact</label>
+            {{ form.contact }}
+          </div>
+          {% endif %}
+
+          <div class="mb-3">
+            <label for="{{ form.to_number.id_for_label }}" class="form-label">{{ form.to_number.label }} <span class="text-danger">*</span></label>
+            <div class="input-group has-validation">
+              <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+              <input type="text" name="{{ form.to_number.html_name }}" id="{{ form.to_number.id_for_label }}"
+                     value="{{ form.to_number.value|default_if_none:'' }}"
+                     class="form-control {% if form.to_number.errors %}is-invalid{% endif %}"
+                     placeholder="+639171234567" autocomplete="tel" inputmode="tel" maxlength="25"
+                     aria-describedby="phone-help">
+              {% if form.to_number.errors %}
+                <div class="invalid-feedback">{{ form.to_number.errors|join:" " }}</div>
+              {% endif %}
+            </div>
+            <div id="phone-help" class="form-text">{{ form.to_number.help_text }}</div>
+          </div>
+
+          <div class="mb-2">
+            <label for="{{ form.body.id_for_label }}" class="form-label">{{ form.body.label }} <span class="text-danger">*</span></label>
+            <textarea name="{{ form.body.html_name }}" id="{{ form.body.id_for_label }}" rows="5"
+                      maxlength="1600" placeholder="Type your message here..."
+                      class="form-control {% if form.body.errors %}is-invalid{% endif %}">{{ form.body.value|default_if_none:'' }}</textarea>
+            {% if form.body.errors %}
+              <div class="invalid-feedback">{{ form.body.errors|join:" " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="d-flex justify-content-between small text-body-secondary mb-4" id="counter">
+            <span><span id="char-count">0</span> / 1600 characters</span>
+            <span><span id="segment-count">0</span> SMS segment(s) · <span id="encoding">GSM</span></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg w-100" id="send-btn">
+            <i class="bi bi-send-fill me-1"></i> Send SMS
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="bi bi-phone"></i> Message preview</h2>
+        <div class="phone-preview">
+          <div class="phone-to small text-body-secondary mb-2">To: <span id="preview-to">—</span></div>
+          <div class="bubble" id="preview-body"><span class="text-body-secondary fst-italic">Your message will appear here.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="h6 text-uppercase text-body-secondary mb-0"><i class="bi bi-clock-history"></i> Recent attempts</h2>
+          <a href="{% url 'sms_app:history' %}" class="small">View all</a>
+        </div>
+        {% if recent %}
+          <ul class="list-group list-group-flush">
+            {% for sms in recent %}
+              <li class="list-group-item px-0">
+                <div class="d-flex justify-content-between">
+                  <span class="fw-medium">{{ sms.to_number }}</span>
+                  <span class="badge text-bg-{{ sms.status_badge }}">{{ sms.get_status_display }}</span>
+                </div>
+                <div class="small text-body-secondary text-truncate">{{ sms.body }}</div>
+                <div class="small text-body-tertiary">{{ sms.created_at|date:"M d, Y g:i A" }}</div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-body-secondary small mb-0">No messages yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ contact_numbers|json_script:"contacts-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'sms_app/js/compose.js' %}"></script>
+{% endblock %}

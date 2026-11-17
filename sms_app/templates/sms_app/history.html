@@ -1,0 +1,94 @@
+{% extends 'sms_app/base.html' %}
+{% block title %}History{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <div>
+    <h1 class="h4 mb-0">Message history</h1>
+    <p class="text-body-secondary small mb-0">Every sending attempt, with its latest known status.</p>
+  </div>
+  <a href="{% url 'sms_app:compose' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> New message</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card shadow-sm stat-card {% if not status_filter %}active{% endif %}"><a href="?" class="card-body d-block">
+      <div class="text-body-secondary small"><i class="bi bi-collection"></i> All attempts</div>
+      <div class="stat-value">{{ stats.total }}</div>
+    </a></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card shadow-sm stat-card {% if status_filter == 'pending' %}active{% endif %}"><a href="?status=pending" class="card-body d-block">
+      <div class="text-info-emphasis small"><i class="bi bi-hourglass-split"></i> Submitted, not confirmed</div>
+      <div class="stat-value">{{ stats.pending }}</div>
+    </a></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card shadow-sm stat-card {% if status_filter == 'delivered' %}active{% endif %}"><a href="?status=delivered" class="card-body d-block">
+      <div class="text-success small"><i class="bi bi-check2-all"></i> Delivered</div>
+      <div class="stat-value">{{ stats.delivered }}</div>
+    </a></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card shadow-sm stat-card {% if status_filter == 'failed' %}active{% endif %}"><a href="?status=failed" class="card-body d-block">
+      <div class="text-danger small"><i class="bi bi-x-octagon"></i> Failed / not sent</div>
+      <div class="stat-value">{{ stats.failed }}</div>
+    </a></div>
+  </div>
+</div>
+
+<div class="alert alert-light border small">
+  <i class="bi bi-info-circle"></i>
+  <strong>Submitted ≠ delivered.</strong> "Queued" or "Sent to carrier" only means Twilio accepted the message.
+  Press <i class="bi bi-arrow-clockwise"></i> to ask Twilio for the latest status; only <span class="badge text-bg-success">Delivered</span> is confirmed delivery.
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Date</th>
+          <th>Recipient</th>
+          <th>Message</th>
+          <th>Segments</th>
+          <th>Status</th>
+          <th class="text-end">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sms in sms_list %}
+          <tr>
+            <td class="text-nowrap small">{{ sms.created_at|date:"M d, Y" }}<br><span class="text-body-secondary">{{ sms.created_at|date:"g:i A" }}</span></td>
+            <td class="text-nowrap">{{ sms.to_number }}</td>
+            <td class="message-cell small">{{ sms.body|truncatechars:160 }}</td>
+            <td>{{ sms.segments }}</td>
+            <td>
+              <span class="badge text-bg-{{ sms.status_badge }}">{{ sms.get_status_display }}</span>
+              {% if sms.error_message %}
+                <div class="small text-danger mt-1">{{ sms.error_message }}{% if sms.error_code %} <span class="text-body-secondary">({{ sms.error_code }})</span>{% endif %}</div>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if sms.provider_sid and not sms.is_final %}
+                <form method="post" action="{% url 'sms_app:refresh_status' sms.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-outline-primary" title="Check latest status with Twilio">
+                    <i class="bi bi-arrow-clockwise"></i> Check status
+                  </button>
+                </form>
+              {% else %}
+                <span class="text-body-tertiary small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="text-center text-body-secondary py-5">
+            <i class="bi bi-inbox fs-3 d-block mb-2"></i>No messages {% if status_filter %}match this filter{% else %}yet{% endif %}.
+          </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
